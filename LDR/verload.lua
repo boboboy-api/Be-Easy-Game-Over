@@ -1051,7 +1051,11 @@ local function callApi(url, payload)
     local body = HttpService:JSONEncode(payload)
     if D then pcall(function() print("[D] callApi → POST "..url.." payload="..body:sub(1,100)) end) end
     local res = requestProxy(url, "POST",
-        {["Content-Type"] = "application/json", ["X-Api-Secret"] = API_SECRET},
+        {
+            ["Content-Type"] = "application/json",
+            ["X-Api-Secret"] = API_SECRET,
+            ["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        },
         body
     )
     if not res then
