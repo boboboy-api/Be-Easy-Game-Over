@@ -1002,6 +1002,12 @@ end
 -- ================================================
 -- API CALL
 -- ================================================
+local function isJson(str)
+    if type(str) ~= "string" then return false end
+    local s = str:match("^%s*(.)")
+    return s == "{" or s == "["
+end
+
 local function requestProxy(url, method, headers, body)
     local tbl = {Url = url, Method = method, Headers = headers, Body = body}
     if D then pcall(function()
@@ -1013,35 +1019,36 @@ local function requestProxy(url, method, headers, body)
 
     if request then
         local ok, res = pcall(request, tbl)
-        if D then pcall(function() print("[D] request() → ok="..tostring(ok).." type="..type(res).." code="..tostring(res and res.StatusCode)) end) end
-        if ok and res and type(res) == "table" and res.Body then return res end
+        if D then pcall(function() print("[D] request() → ok="..tostring(ok).." type="..type(res).." code="..tostring(res and res.StatusCode).." json="..tostring(isJson(res and res.Body))) end) end
+        if ok and res and type(res) == "table" and res.Body and isJson(res.Body) then return res end
     end
 
     if syn and syn.request then
         local ok, res = pcall(syn.request, tbl)
-        if D then pcall(function() print("[D] syn.request() → ok="..tostring(ok).." type="..type(res).." code="..tostring(res and res.StatusCode)) end) end
-        if ok and res and type(res) == "table" and res.Body then return res end
+        if D then pcall(function() print("[D] syn.request() → ok="..tostring(ok).." type="..type(res).." code="..tostring(res and res.StatusCode).." json="..tostring(isJson(res and res.Body))) end) end
+        if ok and res and type(res) == "table" and res.Body and isJson(res.Body) then return res end
     end
 
     if http and http.request then
         local ok, res = pcall(http.request, tbl)
-        if D then pcall(function() print("[D] http.request(tbl) → ok="..tostring(ok).." type="..type(res)) end) end
-        if ok and res and type(res) == "table" and res.Body then return res end
+        if D then pcall(function() print("[D] http.request(tbl) → ok="..tostring(ok).." type="..type(res).." json="..tostring(isJson(res and res.Body))) end) end
+        if ok and res and type(res) == "table" and res.Body and isJson(res.Body) then return res end
         local ok, res = pcall(http.request, url, method, headers, body)
-        if D then pcall(function() print("[D] http.request(pos) → ok="..tostring(ok).." type="..type(res)) end) end
+        if D then pcall(function() print("[D] http.request(pos) → ok="..tostring(ok).." type="..type(res).." json="..tostring(isJson(type(res)=="table" and res.Body or res))) end) end
         if ok then
-            if type(res) == "table" then return res end
-            if type(res) == "string" then return {Body = res} end
+            if type(res) == "table" and res.Body and isJson(res.Body) then return res end
+            if type(res) == "string" and isJson(res) then return {Body = res} end
         end
     end
 
-    if method == "POST" then
-        local ok, res = pcall(function()
-            return game:HttpGet(url .. "?" .. HttpService:URLEncode(body))
-        end)
-        if D then pcall(function() print("[D] game:HttpGet → ok="..tostring(ok).." len="..tostring(#(res or ""))) end) end
-        if ok and res and res ~= "" then return {Body = res} end
-    end
+    -- Fallback: game:HttpGet via Roblox proxy (bisa bypass Cloudflare)
+    if D then pcall(function() print("[D] ⚠ method sebelumnya kena HTML block, coba game:HttpGet...") end) end
+    local ua = headers["User-Agent"] or "Mozilla/5.0"
+    local ok, res = pcall(function()
+        return game:HttpGet(url .. "?" .. HttpService:URLEncode(body) .. "&_ua=" .. HttpService:URLEncode(ua))
+    end)
+    if D then pcall(function() print("[D] game:HttpGet → ok="..tostring(ok).." len="..tostring(#(res or "")).." json="..tostring(isJson(res))) end) end
+    if ok and res and isJson(res) then return {Body = res} end
 
     if D then pcall(function() print("[D] ❌ SEMUA METHOD GAGAL") end) end
     return nil
@@ -1053,6 +1060,7 @@ local function callApi(url, payload)
     local res = requestProxy(url, "POST",
         {
             ["Content-Type"] = "application/json",
+            ["Accept"] = "application/json",
             ["X-Api-Secret"] = API_SECRET,
             ["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         },
