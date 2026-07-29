@@ -2,6 +2,8 @@
 -- DIMZ HUB LOADER v2.5 — MODIFIED (autoSell Support)
 -- ================================================
 
+local D = true -- ⚙ DEBUG ON/OFF — ganti jadi false kalo udah selesai debugging
+
 -- ╔══════════════════════════════════════════════╗
 -- ║  KONFIGURASI — EDIT DI SINI                  ║
 -- ╚══════════════════════════════════════════════╝
@@ -34,6 +36,7 @@ pcall(function()
     FLAG_autoSell  = resolveFlag("autoSell")
     FLAG_pearlsFarm = resolveFlag("pearlsFarm")
 end)
+if D then pcall(function() print("[D] flags: autoSell="..tostring(FLAG_autoSell).." pearlsFarm="..tostring(FLAG_pearlsFarm)) end) end
 
 -- ✅ FUNGSI getScriptUrl — DIPERBAIKI: pakai tabel dengan key STRING
 --    supaya aman dari bug "number encryption" obfuscator pada placeId
@@ -99,21 +102,30 @@ local function getGlobalFlag(name)
 end
 
 local function getScriptUrl(pid, fishing)
-    local entry = SCRIPT_MAP[tostring(pid)]
-    if not entry then return nil end
+    local pidStr = tostring(pid)
+    local entry = SCRIPT_MAP[pidStr]
+    if not entry then
+        if D then pcall(function() print("[D] getScriptUrl: ❌ placeId "..pidStr.." tidak ada di SCRIPT_MAP") end) end
+        return nil
+    end
+    if D then pcall(function() print("[D] getScriptUrl: placeId "..pidStr.." ditemukan, fishing="..tostring(fishing).." autoSell="..tostring(FLAG_autoSell).." pearlsFarm="..tostring(FLAG_pearlsFarm)) end) end
 
     if fishing and entry.fishing then
+        if D then pcall(function() print("[D] getScriptUrl: → fishing") end) end
         return entry.fishing
     end
 
     if entry.autoSell and (FLAG_autoSell or getGlobalFlag("autoSell")) then
+        if D then pcall(function() print("[D] getScriptUrl: → autoSell") end) end
         return entry.autoSell
     end
 
     if entry.pearlsFarm and (FLAG_pearlsFarm or getGlobalFlag("pearlsFarm")) then
+        if D then pcall(function() print("[D] getScriptUrl: → pearlsFarm") end) end
         return entry.pearlsFarm
     end
 
+    if D then pcall(function() print("[D] getScriptUrl: → normal") end) end
     return entry.normal
 end
 
@@ -133,14 +145,19 @@ local placeId     = game.PlaceId
 -- ── HWID ─────────────────────────────────────────
 local hwid = "unknown"
 pcall(function()
+    if D then pcall(function() print("[D] HWID: gethwid="..tostring(gethwid).." identifyexecutor="..tostring(identifyexecutor).." readfile="..tostring(readfile)) end) end
     if gethwid ~= nil then
         local ok, h = pcall(gethwid)
         if ok and h and tostring(h) ~= "" then
-            hwid = tostring(h); return
+            hwid = tostring(h)
+            if D then pcall(function() print("[D] HWID: ✅ gethwid="..hwid) end) end
+            return
         end
     end
     if HWID ~= nil and tostring(HWID) ~= "" then
-        hwid = tostring(HWID); return
+        hwid = tostring(HWID)
+        if D then pcall(function() print("[D] HWID: ✅ HWID global="..hwid) end) end
+        return
     end
     if identifyexecutor ~= nil then
         local exec = ""
@@ -165,10 +182,12 @@ pcall(function()
             end
         end)
         local combined = exec .. "_" .. uid .. "_" .. extra
-        if combined ~= "__" then hwid = combined; return end
+        if D then pcall(function() print("[D] HWID: combined="..combined) end) end
+        if combined ~= "__" then hwid = combined; if D then pcall(function() print("[D] HWID: ✅ "..hwid) end) end; return end
     end
     pcall(function()
         hwid = "rblx_" .. tostring(player.UserId) .. "_" .. tostring(placeId)
+        if D then pcall(function() print("[D] HWID: fallback="..hwid) end) end
     end)
 end)
 
@@ -176,13 +195,20 @@ end)
 local savedKey   = ""
 local savedToken = ""
 pcall(function()
-    if readfile == nil then return end
+    if readfile == nil then
+        if D then pcall(function() print("[D] savedKey: readfile nil") end) end
+        return
+    end
     local ok, raw = pcall(readfile, "dimzhub_key.txt")
-    if not ok or not raw then return end
+    if not ok or not raw then
+        if D then pcall(function() print("[D] savedKey: file tidak ada") end) end
+        return
+    end
     for line in raw:gmatch("[^\n]+") do
         if line:sub(1,4) == "key=" then savedKey   = line:sub(5) end
         if line:sub(1,4) == "tok=" then savedToken = line:sub(5) end
     end
+    if D then pcall(function() print("[D] savedKey: key="..savedKey:sub(1,10).." tok="..savedToken:sub(1,10)) end) end
 end)
 
 local function saveKey(k, t)
@@ -213,6 +239,7 @@ pcall(function()
     end)
     isFishing = ok and fa ~= nil
 end)
+if D then pcall(function() print("[D] isFishing="..tostring(isFishing)) end) end
 
 -- ── Bersihkan GUI lama ───────────────────────────
 for _, v in ipairs(playerGui:GetChildren()) do
@@ -422,13 +449,16 @@ pcall(function()
     local info = MarketplaceService:GetProductInfo(placeId)
     if info and info.Name then gameName = info.Name end
 end)
+if D then pcall(function() print("[D] placeId="..tostring(placeId).." gameName="..gameName) end) end
 
 setMSt("✓ "..gameName, C3(80,200,255))
 tw(mBarFill, 0.4, {Size=U2(0.6,0,1,0), BackgroundColor3=C3(50,210,130)})
 task.wait(0.85); stopMini()
 
 -- ── Cek apakah game didukung ─────────────────────
-if not getScriptUrl(placeId, false) then
+local scriptUrl = getScriptUrl(placeId, false)
+if D then pcall(function() print("[D] getScriptUrl → "..tostring(scriptUrl)) end) end
+if not scriptUrl then
     tw(miniS, 0.3, {Color=C3(255,75,75)})
     tw(mOuterS, 0.3, {Color=C3(255,75,75)})
     tw(mInnerS, 0.3, {Color=C3(255,75,75)})
@@ -636,11 +666,14 @@ task.spawn(function()
     local loaded = false
     pcall(function()
         if writefile and isfile and getcustomasset then
+            if D then pcall(function() print("[D] logo: download via writefile") end) end
             if not isfile("dimzhub_logo.png") then
                 local data = game:HttpGet(LOGO_URL, true)
+                if D then pcall(function() print("[D] logo: GET "..LOGO_URL.." → len="..tostring(#(data or ""))) end) end
                 writefile("dimzhub_logo.png", data)
             end
             local uri = getcustomasset("dimzhub_logo.png")
+            if D then pcall(function() print("[D] logo: customasset uri="..tostring(uri)) end) end
             if uri and uri ~= "" then
                 logoImg.Image = uri
                 logoImg.Visible = true
@@ -971,74 +1004,73 @@ end
 -- ================================================
 local function requestProxy(url, method, headers, body)
     local tbl = {Url = url, Method = method, Headers = headers, Body = body}
+    if D then pcall(function()
+        local av = ("request=%s syn=%s http=%s HttpGet=%s"):format(
+            tostring(request), tostring(syn and syn.request),
+            tostring(http and http.request), tostring(game.HttpGet))
+        print("[D] req methods: "..av)
+    end) end
 
-    -- DEBUG: cek fungsi apa yang tersedia
-    local dbg = ("[DBG] request=%s  syn=%s  http=%s  game:HttpGet=%s"):format(
-        tostring(request), tostring(syn and syn.request), tostring(http and http.request), tostring(game.HttpGet)
-    )
-    pcall(function() print(dbg) end)
-
-    -- request() (Delta baru, Xeno, Solara, Codex, Arceus, dan modern executor)
     if request then
         local ok, res = pcall(request, tbl)
-        pcall(function() print("[DBG] request() ok="..tostring(ok).." type="..type(res)) end)
+        if D then pcall(function() print("[D] request() → ok="..tostring(ok).." type="..type(res).." code="..tostring(res and res.StatusCode)) end) end
         if ok and res and type(res) == "table" and res.Body then return res end
     end
 
-    -- syn.request (Synapse, ScriptWare, KRNL)
     if syn and syn.request then
         local ok, res = pcall(syn.request, tbl)
-        pcall(function() print("[DBG] syn.request() ok="..tostring(ok).." type="..type(res)) end)
+        if D then pcall(function() print("[D] syn.request() → ok="..tostring(ok).." type="..type(res).." code="..tostring(res and res.StatusCode)) end) end
         if ok and res and type(res) == "table" and res.Body then return res end
     end
 
-    -- http.request (Delta lama, Fluxus, Hydrogen — coba table dulu, lalu positional)
     if http and http.request then
         local ok, res = pcall(http.request, tbl)
-        pcall(function() print("[DBG] http.request(table) ok="..tostring(ok).." type="..type(res)) end)
+        if D then pcall(function() print("[D] http.request(tbl) → ok="..tostring(ok).." type="..type(res)) end) end
         if ok and res and type(res) == "table" and res.Body then return res end
-
         local ok, res = pcall(http.request, url, method, headers, body)
-        pcall(function() print("[DBG] http.request(pos) ok="..tostring(ok).." type="..type(res)) end)
+        if D then pcall(function() print("[D] http.request(pos) → ok="..tostring(ok).." type="..type(res)) end) end
         if ok then
             if type(res) == "table" then return res end
             if type(res) == "string" then return {Body = res} end
         end
     end
 
-    -- Fallback: game:HttpGet untuk POST via URL encoded body (executor minimal)
     if method == "POST" then
         local ok, res = pcall(function()
             return game:HttpGet(url .. "?" .. HttpService:URLEncode(body))
         end)
-        pcall(function() print("[DBG] game:HttpGet() ok="..tostring(ok).." len="..tostring(#(res or ""))) end)
+        if D then pcall(function() print("[D] game:HttpGet → ok="..tostring(ok).." len="..tostring(#(res or ""))) end) end
         if ok and res and res ~= "" then return {Body = res} end
     end
 
-    pcall(function() print("[DBG] SEMUA METHOD GAGAL — returning nil") end)
+    if D then pcall(function() print("[D] ❌ SEMUA METHOD GAGAL") end) end
     return nil
 end
 
 local function callApi(url, payload)
+    local body = HttpService:JSONEncode(payload)
+    if D then pcall(function() print("[D] callApi → POST "..url.." payload="..body:sub(1,100)) end) end
     local res = requestProxy(url, "POST",
         {["Content-Type"] = "application/json", ["X-Api-Secret"] = API_SECRET},
-        HttpService:JSONEncode(payload)
+        body
     )
     if not res then
-        pcall(function() print("[DBG] callApi: res = nil") end)
+        if D then pcall(function() print("[D] callApi: ❌ res = nil") end) end
         return nil, "Empty response"
     end
     if not res.Body then
-        pcall(function() print("[DBG] callApi: res.Body = nil, keys: " .. table.concat(table_keys and table_keys(res) or {"?"}, ",")) end)
+        if D then pcall(function() print("[D] callApi: ❌ res.Body = nil, status="..tostring(res.StatusCode)) end) end
         return nil, "Empty response"
     end
-    local bodyStr = tostring(res.Body):sub(1,200)
-    pcall(function() print("[DBG] callApi: body ("..#tostring(res.Body).." chars) = "..bodyStr) end)
-    local dok, dec = pcall(HttpService.JSONDecode, HttpService, res.Body)
+    local bodyStr = tostring(res.Body)
+    local code = res.StatusCode or "?"
+    if D then pcall(function() print("[D] callApi: status="..tostring(code).." body("..#bodyStr.."c)="..bodyStr:sub(1,250)) end) end
+    local dok, dec = pcall(HttpService.JSONDecode, HttpService, bodyStr)
     if not dok then
-        pcall(function() print("[DBG] callApi: JSON decode failed on: "..bodyStr) end)
+        if D then pcall(function() print("[D] callApi: ❌ JSON decode gagal") end) end
         return nil, "JSON error"
     end
+    if D then pcall(function() print("[D] callApi: ✅ sukses — "..tostring(dec.success)) end) end
     return dec, nil
 end
 
@@ -1067,8 +1099,11 @@ local function loadMain()
     end
     
     -- Download source + inject key langsung ke execution context yang sama
+    if D then pcall(function() print("[D] loadMain: GET "..url) end) end
     local src = game:HttpGet(url)
+    if D then pcall(function() print("[D] loadMain: GET → len="..tostring(#(src or ""))) end) end
     if not src or src == "" then
+        if D then pcall(function() print("[D] loadMain: ❌ gagal download") end) end
         animStroke(C3(255,148,38))
         statusLbl.Text       = "Failed to load"
         statusLbl.TextColor3 = C3(255,148,38)
@@ -1095,8 +1130,9 @@ local function loadMain()
         inject = "do _G.DIMZ_PREMIUM=true end"
     end
     
-    -- ✅ Execute script dengan loadstring — robust di nested closure
+    if D then pcall(function() print("[D] loadMain: loadstring "..tostring(#(inject..src)).." chars") end) end
     local ls_ok, ls_fn, ls_err = pcall(loadstring, inject .. "\n" .. src)
+    if D then pcall(function() print("[D] loadMain: loadstring → ok="..tostring(ls_ok).." type="..type(ls_fn).." err="..tostring(ls_err or ls_fn):sub(1,80)) end) end
     if not ls_ok or type(ls_fn) ~= "function" then
         local load_err = (ls_ok and ls_err) or ls_fn or "loadstring error"
         animStroke(C3(255,148,38))
@@ -1110,6 +1146,7 @@ local function loadMain()
         return
     end
     local sp_ok, sp_err = pcall(task.spawn, ls_fn)
+    if D then pcall(function() print("[D] loadMain: task.spawn → ok="..tostring(sp_ok).." err="..tostring(sp_err or "?")) end) end
     if not sp_ok then
         pcall(task.spawn, function()
             local s, e = pcall(ls_fn)
@@ -1147,13 +1184,16 @@ local function doVerify()
     statusLbl.Text="Verifying key..."
     statusLbl.TextColor3=C3(118,145,170)
 
+    if D then pcall(function() print("[D] doVerify: callApi verify_key key="..key:sub(1,8).." hwid="..hwid:sub(1,20)) end) end
     local res,err = callApi(KEY_GATEWAY,{
         action="verify_key", key_value=key,
         hwid=hwid, username=username, game=gameName
     })
     dotsOn=false; barOn=false; verifying=false
+    if D then pcall(function() print("[D] doVerify: res="..tostring(res).." err="..tostring(err)) end) end
 
     if not res then
+        if D then pcall(function() print("[D] doVerify: ❌ callApi gagal: "..tostring(err)) end) end
         animBar(1,0.3,C3(255,75,75)); animStroke(C3(255,75,75))
         statusLbl.Text="Connection failed"; task.wait(1.5)
         showKeyInput("Connection failed. Please try again.",false)
@@ -1220,12 +1260,15 @@ task.spawn(function()
     task.wait(1.0)
     setMSt("Contacting server...", C3(80,115,155))
 
+    if D then pcall(function() print("[D] mainFlow: callApi PREM_GATEWAY username="..username) end) end
     local res,err = callApi(PREM_GATEWAY,{
         action="check_member_premium", username=username
     })
     stopAnims()
+    if D then pcall(function() print("[D] mainFlow: res="..tostring(res).." err="..tostring(err)) end) end
 
     if not res then
+        if D then pcall(function() print("[D] mainFlow: ❌ PREM_GATEWAY gagal: "..tostring(err)) end) end
         tw(mBarFill, 0.3, {BackgroundColor3=C3(255,75,75), Size=U2(1,0,1,0)})
         setMSt("Connection failed", C3(255,80,80)); task.wait(1.0)
         miniOut(); task.wait(0.1)
@@ -1258,13 +1301,16 @@ task.spawn(function()
     task.wait(0.3)
 
     if savedKey ~= "" then
+        if D then pcall(function() print("[D] mainFlow: callApi check_session") end) end
         local kres,kerr = callApi(KEY_GATEWAY,{
             action="check_session", key_value=savedKey,
             session_token=savedToken, hwid=hwid,
             username=username, game=gameName
         })
+        if D then pcall(function() print("[D] mainFlow: kres="..tostring(kres).." kerr="..tostring(kerr)) end) end
 
         if kerr or not kres then
+            if D then pcall(function() print("[D] mainFlow: ❌ check_session gagal") end) end
             tw(mBarFill, 0.3, {BackgroundColor3=C3(255,75,75), Size=U2(1,0,1,0)})
             setMSt("Connection failed", C3(255,80,80)); task.wait(0.8)
             saveKey(savedKey,savedToken)
